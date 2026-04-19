@@ -1,0 +1,114 @@
+import { readFileSync } from 'fs';
+import path from 'path';
+
+export const firebaseBlueprint = {
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users and their roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "call_center", "operations", "executor"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt", "updatedAt"]
+    },
+    "PriceListItem": {
+       "title": "PriceListItem",
+       "description": "Service categories and their pricing rules.",
+       "type": "object",
+       "properties": {
+         "id": { "type": "string" },
+         "serviceCategory": { "type": "string" },
+         "serviceDescription": { "type": "string" },
+         "oldPrice": { "type": "number" },
+         "newPrice": { "type": "number" },
+         "discountPercent": { "type": "number" },
+         "acesPercent": { "type": "number" },
+         "finalPrice": { "type": "number" },
+         "createdAt": { "type": "number" },
+         "updatedAt": { "type": "number" }
+       },
+       "required": ["id", "serviceCategory", "serviceDescription", "oldPrice", "newPrice", "discountPercent", "acesPercent", "finalPrice", "createdAt", "updatedAt"]
+    },
+    "EmailMapping": {
+        "title": "EmailMapping",
+        "description": "Maps a service category to an executor email.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "serviceCategory": { "type": "string" },
+            "executorEmail": { "type": "string" },
+            "mappedBy": { "type": "string" },
+            "createdAt": { "type": "number" },
+            "updatedAt": { "type": "number" }
+        },
+        "required": ["id", "serviceCategory", "executorEmail", "mappedBy", "createdAt", "updatedAt"]
+    },
+    "Order": {
+        "title": "Order",
+        "description": "Service order request.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "customerId": { "type": "string" },
+            "customerName": { "type": "string" },
+            "customerPhone": { "type": "string" },
+            "address": { "type": "string" },
+            "serviceCategory": { "type": "string" },
+            "serviceDescription": { "type": "string" },
+            "basePrice": { "type": "number" },
+            "discount": { "type": "number" },
+            "finalPrice": { "type": "number" },
+            "status": { "type": "string", "enum": ["Pending", "In Progress", "Completed", "Not Completed"] },
+            "assignedExecutor": { "type": "string" },
+            "notCompletedReason": { "type": "string" },
+            "createdBy": { "type": "string" },
+            "createdAt": { "type": "number" },
+            "updatedAt": { "type": "number" }
+        },
+        "required": ["id", "customerName", "customerPhone", "serviceCategory", "serviceDescription", "basePrice", "discount", "finalPrice", "status", "assignedExecutor", "createdBy", "createdAt", "updatedAt"]
+    },
+    "AuditLog": {
+        "title": "AuditLog",
+        "description": "Log of user actions.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "action": { "type": "string" },
+            "collectionName": { "type": "string" },
+            "docId": { "type": "string" },
+            "userId": { "type": "string" },
+            "details": { "type": "string" },
+            "createdAt": { "type": "number" }
+        },
+        "required": ["id", "action", "collectionName", "docId", "userId", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "System users"
+    },
+    "/priceList/{itemId}": {
+      "schema": { "$ref": "#/entities/PriceListItem" },
+      "description": "Prices imported from CSV"
+    },
+    "/emailMappings/{mappingId}": {
+      "schema": { "$ref": "#/entities/EmailMapping" },
+      "description": "Assigns executors to categories"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Service Orders"
+    },
+    "/auditLogs/{logId}": {
+        "schema": { "$ref": "#/entities/AuditLog" },
+        "description": "System Audit Logs"
+    }
+  }
+};

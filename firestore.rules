@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() { return isSignedIn() && getUserRole() == 'admin'; }
+    function isCallCenter() { return isSignedIn() && getUserRole() == 'call_center'; }
+    function isOperations() { return isSignedIn() && getUserRole() == 'operations'; }
+    function isExecutor() { return isSignedIn() && getUserRole() == 'executor'; }
+
+    // Validation Blueprint for User
+    function isValidUser(data) {
+      return data.keys().hasAll(["uid", "email", "name", "role", "createdAt", "updatedAt"]) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             data.name is string && data.name.size() > 0 &&
+             data.role in ['admin', 'call_center', 'operations', 'executor'] &&
+             data.createdAt is number && data.updatedAt is number;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isCallCenter() || isOperations());
+      allow create: if isAdmin() && isValidUser(incoming()) && incoming().uid == request.auth.uid;
+      // Also allow user to self-create ONLY during initial login if they have no document, wait, we'll let auth trigger or admin handle it. Admin driven.
+      // Actually, we'll allow users to create their own record first login:
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().uid == userId; 
+      allow update: if isSignedIn() && isValidUser(incoming()) && (
+        isAdmin() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']))
+      );
+      allow delete: if isAdmin();
+      allow list: if isAdmin() || isCallCenter() || isOperations();
+    }
+
+    // Validation Blueprint for PriceListItem
+    function isValidPriceListItem(data) {
+      return data.keys().hasAll(["id", "serviceCategory", "serviceDescription", "oldPrice", "newPrice", "discountPercent", "acesPercent", "finalPrice", "createdAt", "updatedAt"]) &&
+             data.id is string && data.serviceCategory is string && data.serviceDescription is string &&
+             data.oldPrice is number && data.newPrice is number && data.discountPercent is number &&
+             data.acesPercent is number && data.finalPrice is number &&
+             data.createdAt is number && data.updatedAt is number;
+    }
+
+    match /priceList/{itemId} {
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Validation Blueprint for EmailMapping
+    function isValidEmailMapping(data) {
+       return data.keys().hasAll(["id", "serviceCategory", "executorEmail", "mappedBy", "createdAt", "updatedAt"]) &&
+              data.id is string && data.serviceCategory is string && data.executorEmail is string &&
+              data.mappedBy is string && data.createdAt is number && data.updatedAt is number;
+    }
+
+    match /emailMappings/{mappingId} {
+      allow read, list: if isSignedIn() && (isAdmin() || isCallCenter());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Validation Blueprint for Order
+    function isValidOrder(data) {
+      return data.keys().hasAll(["id", "customerId", "customerName", "customerPhone", "address", "serviceCategory", "serviceDescription", "basePrice", "discount", "finalPrice", "status", "assignedExecutor", "notCompletedReason", "createdBy", "createdAt", "updatedAt"]) &&
+             data.id is string && data.customerPhone is string && data.customerName is string &&
+             data.serviceCategory is string && data.serviceDescription is string &&
+             data.basePrice is number && data.discount is number && data.finalPrice is number &&
+             data.status in ["Pending", "In Progress", "Completed", "Not Completed"] &&
+             data.createdAt is number && data.updatedAt is number;
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (isAdmin() || isCallCenter() || isOperations() || (isExecutor() && existing().assignedExecutor == request.auth.token.email));
+      allow list: if isSignedIn() && (isAdmin() || isCallCenter() || isOperations() || (isExecutor() && resource.data.assignedExecutor == request.auth.token.email));
+      // Call center creates
+      allow create: if isSignedIn() && (isAdmin() || isCallCenter()) && isValidOrder(incoming());
+      // Operators update status
+      allow update: if isSignedIn() && isValidOrder(incoming()) && (
+        isAdmin() ||
+        (isCallCenter() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notCompletedReason', 'updatedAt', 'customerName', 'customerPhone'])) ||
+        (isOperations() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notCompletedReason', 'updatedAt'])) ||
+        (isExecutor() && existing().assignedExecutor == request.auth.token.email && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notCompletedReason', 'updatedAt']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Validation Blueprint for AuditLog
+    function isValidAuditLog(data) {
+       return data.keys().hasAll(["id", "action", "collectionName", "docId", "userId", "details", "createdAt"]) &&
+              data.id is string && data.action is string && data.collectionName is string &&
+              data.docId is string && data.userId is string && data.details is string &&
+              data.createdAt is number;
+    }
+
+    match /auditLogs/{logId} {
+      allow create: if isSignedIn() && isValidAuditLog(incoming()) && incoming().userId == request.auth.uid;
+      allow read, list: if isAdmin();
+    }
+  }
+}

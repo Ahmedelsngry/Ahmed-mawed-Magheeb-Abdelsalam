@@ -1,0 +1,6 @@
+id,serviceCategory,serviceDescription,oldPrice,newPrice,discountPercent,acesPercent,finalPrice
+SRV-001,Air Conditioning,AC Standard Service,250,200,10,25,180
+SRV-002,Air Conditioning,AC Deep Cleaning,350,300,5,25,285
+SRV-003,Plumbing,Water Heater Repair,400,350,0,25,350
+SRV-004,Electrical,Light Fixture Install,150,120,0,25,120
+SRV-005,Civil,Wall Painting (Per SqM),50,45,0,25,45

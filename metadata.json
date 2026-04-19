@@ -1,0 +1,6 @@
+{
+  "name": "FMPLUS R3 System",
+  "description": "Service Order Management System used by FMPLUS Facility Management in the R3 compound.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["auth", "database"]
+}
